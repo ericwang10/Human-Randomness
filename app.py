@@ -42,7 +42,7 @@ def index():
     unique_usernames = User.query.with_entities(User.username).distinct().all()
     users = [user[0] for user in unique_usernames]  # Extract usernames from tuples
     print(users)
-
+    print("INDEX TRIGGERED")
     # Generate initial predictions
     initial_predictions = predict_next_input("")  # Empty sequence for initial guess
     # Format predictions for JSON serialization

@@ -1,0 +1,32 @@
+<!-- view_table.html -->
+{% extends 'base.html' %}
+
+{% block head %}
+<title>View Users</title>
+{% endblock %}
+
+{% block body %}
+<div class="content center">
+    <h1>Users Table</h1>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Sequence</th>
+            <th>Input Date</th>
+            <th>Symbols Used</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <!-- Apply sequence-cell class for word-wrap -->
+            <td class="sequence-cell">{{ user.sequence }}</td>
+            <td>{{ user.input_date }}</td>
+            <td>{{ user.symbols_used }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <a href="{{ url_for('index') }}"><button>Back to Home</button></a>
+</div>
+{% endblock %}

@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<title>Human Randomness</title>
+{% endblock %}
+
+
+{% block body %}
+<div class="content center">
+    <h1>Human Randomness Predictor</h1>
+    <p>_________________________________</p>
+
+    <div class="content center">
+        <p id="sequence" data-sequence=""></p>
+        <div id="modelPredictions"></div> <!-- Placeholder for running predictions -->
+        <button class="button" data-value="0" onclick="updateSequence(this)">0️⃣</button>
+        <button class="button" data-value="1" onclick="updateSequence(this)">1️⃣</button>
+    </div>
+
+    <div>
+        <input type="radio" id="revealEnd" name="aiPrediction" value="end" >
+        <label for="revealEnd">AI Predictions Revealed at End</label><br>
+        <input type="radio" id="revealEach" name="aiPrediction" value="each" checked>
+        <label for="revealEach">AI Predictions Revealed after Each Input</label>
+    </div>
+
+
+
+    <br>
+    <!-- Dropdown for selecting existing users -->
+    <div>
+        <label for="userSelect">Choose a user:</label>
+        <select name="users" id="userSelect" onchange="selectUser(this.value)">
+            <option value="">Select a user...</option>
+            {% for user in users %}
+            <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <h2>Select or Add User</h2>
+        <form id="userForm">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username">
+
+            <input type="submit" value="Select/Add User">
+        </form>
+    </div>
+
+
+
+    <br>
+    <div>
+        <input type="radio" id="fixedInput" name="inputMode" value="fixed" checked>
+        <label for="fixedInput">30 Input Sequence</label><br>
+        <input type="radio" id="freeInput" name="inputMode" value="free" disabled>
+        <label for="freeInput">Free Input</label><br>
+        <input type="radio" id="otherOption" name="inputMode" value="other" disabled>
+        <label for="otherOption">Other Option (TBD)</label>
+    </div>
+
+
+    <button id="submitClearButton">Submit/Clear</button>
+
+    <br>
+    <br>
+    <a href="{{ url_for('view_table') }}"><button>View Users Table</button></a>
+
+    <div id="currentPredictions" class="prediction-details"></div> <!-- Placeholder for current predictions with confidence -->
+
+</div>
+
+
+
+
+<script>
+var inputCount = 0; // Initialize input count
+var awaitingPrediction = false; // Initialize flag
+
+//first pred
+var nextPrediction = {{ initial_predictions|safe }};
+
+function updateSequence(button) {
+    // either predict every input, or after everything
+    var aiPredictionMode = document.querySelector('input[name="aiPrediction"]:checked').value;
+
+    var sequenceElement = document.getElementById('sequence');
+    var username = document.getElementById('userSelect').value; // Get the selected username
+    var value = button.getAttribute('data-value');
+    var symbols = document.querySelector('[data-value="0"]').textContent +
+                  document.querySelector('[data-value="1"]').textContent;
+
+    inputCount++; //for input of 15
+
+    sequenceElement.textContent += button.textContent;
+    var data = {
+        username: username,
+        sequence: sequenceElement.getAttribute('data-sequence') + value,
+        symbols: symbols // Send the symbols alongside the sequence and username
+    };
+
+    sequenceElement.setAttribute('data-sequence', data.sequence);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/update_sequence", true);
+    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            console.log(xhr.responseText);
+        }
+    };
+    xhr.send(JSON.stringify(data));
+
+    // Check input mode and input count to disable buttons if necessary
+    checkInputModeAndCount();
+
+    // New AJAX call for AI predictions if the mode is set to reveal after each input
+    if (aiPredictionMode === 'each') {
+        awaitingPrediction = true; // Set flag before making the request
+        disableInputButtons(); // Immediately disable input buttons
+        displayPredictionEach(nextPrediction);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/get_ai_predictions", true);
+        xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                var response = JSON.parse(xhr.responseText);
+                if (response.status === 'success') {
+                    nextPrediction = response.predictions
+                        // Re-enable input buttons
+                        document.querySelector('[data-value="0"]').disabled = false;
+                        document.querySelector('[data-value="1"]').disabled = false;
+
+                }
+            }
+        };
+        xhr.send(JSON.stringify({sequence: sequenceElement.getAttribute('data-sequence'), aiPrediction: aiPredictionMode}));
+    }
+}
+
+// Assuming there's a global object to track the prediction sequences
+let modelPredictionSequences = {
+    'GRU': '',
+    'LSTM': '',
+    'SimpleRNN': '',
+    'ComplexRNN': '',
+    'Attention 1': ''
+};
+
+function displayPredictionEach(predictions) {
+    let sequenceElement = document.getElementById('sequence');
+    let userSequence = sequenceElement.getAttribute('data-sequence');
+    let predictionContainer = document.getElementById('predictionContainer');
+
+    if (!predictionContainer) {
+        predictionContainer = document.createElement('div');
+        predictionContainer.id = 'predictionContainer';
+        sequenceElement.parentNode.insertBefore(predictionContainer, sequenceElement.nextSibling);
+    }
+    predictionContainer.innerHTML = ''; // Clear previous content
+
+    Object.keys(predictions).forEach(function(model) {
+        let predictionInfo = predictions[model];
+        // Append the new prediction to the running sequence for the model
+        modelPredictionSequences[model] += predictionInfo.predicted_class.toString();
+
+        // Create a new element to display this model's predictions
+        let modelElement = document.createElement('div');
+        modelElement.innerHTML = `<strong>${model} (${calculatePredictionAccuracy(userSequence, modelPredictionSequences[model]).toFixed(2)}%):</strong> `;
+
+        // Add each predicted value with color based on correctness
+        let predictionSequenceHTML = '';
+        for (let i = 0; i < modelPredictionSequences[model].length; i++) {
+            let pred = modelPredictionSequences[model][i];
+            let color = (userSequence[i] === pred) ? 'green' : 'red';
+            predictionSequenceHTML += `<span style="color:${color};">${pred}</span>`;
+        }
+        modelElement.innerHTML += predictionSequenceHTML;
+
+        // Add confidence information
+        modelElement.innerHTML += `<br>Prediction: ${predictionInfo.predicted_class}, Confidence: ${(predictionInfo.confidence * 100).toFixed(2)}%`;
+
+        predictionContainer.appendChild(modelElement);
+    });
+}
+
+// Helper function to calculate the accuracy of predictions against the user sequence
+function calculatePredictionAccuracy(userSequence, predictionSequence) {
+    let correctPredictions = 0;
+    for (let i = 0; i < userSequence.length; i++) {
+        if (userSequence[i] === predictionSequence[i]) {
+            correctPredictions++;
+        }
+    }
+    return (correctPredictions / Math.max(userSequence.length, 1)) * 100; // Avoid division by zero
+}
+
+
+
+function disableInputButtons() {
+    document.querySelector('[data-value="0"]').disabled = true;
+    document.querySelector('[data-value="1"]').disabled = true;
+}
+
+function checkInputModeAndCount() {
+    if (document.getElementById('fixedInput').checked && inputCount >= 3 || awaitingPrediction) {
+        disableInputButtons();
+    } else {
+        document.querySelector('[data-value="0"]').disabled = false;
+        document.querySelector('[data-value="1"]').disabled = false;
+    }
+}
+
+// Listen for changes in input mode and reset inputCount if necessary
+document.getElementsByName('inputMode').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        inputCount = 0; // Reset count on mode change
+        document.getElementById('sequence').textContent = ''; // Clear sequence display
+        document.getElementById('sequence').setAttribute('data-sequence', '');
+        checkInputModeAndCount(); // Update button state based on the new mode
+    });
+});
+
+// Ensure buttons are in the correct state on page load
+document.addEventListener('DOMContentLoaded', checkInputModeAndCount);
+
+</script>
+
+<script>
+document.getElementById('userForm').onsubmit = function(e) {
+    //e.preventDefault();
+    var username = document.getElementById('username').value;
+    var symbols = document.querySelector('[data-value="0"]').textContent +
+                  document.querySelector('[data-value="1"]').textContent;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/handle_user", true);
+    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            var response = JSON.parse(xhr.responseText);
+            if (response.status === 'success') {
+                alert('User selected/added successfully!');
+                // Refresh or update the page content as needed
+            } else {
+                alert('There was a problem with the user operation.');
+            }
+        }
+    };
+    xhr.send(JSON.stringify({username: username, symbols: symbols})); // Sending symbols is optional based on your Flask route logic
+};
+</script>
+
+
+<script>
+function submitSequence() {
+    var username = document.getElementById('userSelect').value;
+    var sequence = document.getElementById('sequence').getAttribute('data-sequence');
+    var symbols = document.querySelector('[data-value="0"]').textContent + document.querySelector('[data-value="1"]').textContent;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/submit_clear", true);
+    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            var response = JSON.parse(xhr.responseText);
+            displayPredictions(response.predictions);
+            // Change button text to 'Clear' and set its onclick to clearSequence
+            document.getElementById('submitClearButton').textContent = 'Clear';
+            document.getElementById('submitClearButton').onclick = clearSequence;
+        }
+    };
+    xhr.send(JSON.stringify({username: username, sequence: sequence, symbols: symbols}));
+
+    inputCount = 0;
+}
+
+// Updated clearSequence function
+function clearSequence() {
+    document.getElementById('sequence').textContent = '';
+    document.getElementById('sequence').setAttribute('data-sequence', '');
+    document.getElementById('predictionContainer').innerHTML = ''; // Clear predictions
+    // Reset button to initial state
+    document.getElementById('submitClearButton').textContent = 'Submit/Clear';
+    document.getElementById('submitClearButton').onclick = submitSequence; // Reset to submitSequence
+    inputCount = 0;
+}
+
+// Ensure initial setup is correct
+document.getElementById('submitClearButton').onclick = submitSequence;
+
+function displayPredictions(predictions) {
+    var sequenceElement = document.getElementById('sequence');
+    var userSequence = sequenceElement.getAttribute('data-sequence');
+
+    // Find the container where the predictions should be inserted
+    var buttonContainer = document.querySelector('.content.center');
+    var predictionContainer = document.getElementById('predictionContainer');
+    if (!predictionContainer) {
+        predictionContainer = document.createElement('div');
+        predictionContainer.id = 'predictionContainer';
+        buttonContainer.insertBefore(predictionContainer, buttonContainer.children[2]); // Insert before the buttons
+    }
+    predictionContainer.innerHTML = '<h2>Predictions</h2>'; // Clear previous predictions and add a title
+
+    Object.keys(predictions).forEach(function(model) {
+        var modelPredictions = predictions[model];
+        var content = document.createElement('div');
+        var sequenceHTML = `<strong>${model}</strong>: Predicted sequence: `;
+
+        // Iterate through each character in the predicted sequence
+        for (let i = 0; i < modelPredictions.predicted_sequence.length; i++) {
+            let predictedChar = modelPredictions.predicted_sequence[i];
+            // Compare against user's input sequence
+            let color = i < userSequence.length && userSequence[i] === predictedChar ? 'green' : 'red';
+            sequenceHTML += `<span style="color:${color};">${predictedChar}</span>`;
+        }
+
+        content.innerHTML = sequenceHTML + `<br> Accuracy: <span>${modelPredictions.accuracy}</span>`;
+        predictionContainer.appendChild(content);
+    });
+}
+</script>
+
+<script>
+// Function to simulate button click based on key press
+function simulateButtonClick(key) {
+    var button;
+    if (key === '1') {
+        button = document.querySelector('[data-value="0"]'); // Selects the button with data-value="0"
+    } else if (key === '2') {
+        button = document.querySelector('[data-value="1"]'); // Selects the button with data-value="1"
+    }
+    if (button) {
+        button.click(); // Simulates a click on the button
+    }
+}
+
+// Listen for keydown event on the entire document
+document.addEventListener('keydown', function(event) {
+    if (event.key === '1' || event.key === '2') {
+        simulateButtonClick(event.key);
+    }
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent the default action of the Enter key
+        document.getElementById('submitClearButton').click(); // Simulates click on the Submit/Clear button
+    }
+
+});
+
+</script>
+
+{% endblock %}

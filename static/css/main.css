@@ -1,0 +1,87 @@
+body, html {
+    margin: 0;
+    font-family: sans-serif;
+    background-color: DarkGray;
+}
+
+.content, #content {
+    margin: 0 auto;
+    width: 70%; /* Adjusted for wider content area */
+    text-align: center; /* Ensure content is centered */
+}
+
+table, td, th {
+    border: 1px solid #aaa;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%; /* Table width to fit content area */
+    margin-left: auto; /* Center table horizontally */
+    margin-right: auto;
+}
+
+th, td {
+    padding: 8px; /* Padding for readability */
+    text-align: left; /* Align text to left for readability */
+    word-wrap: break-word; /* Ensure long text breaks */
+}
+
+th {
+    background-color: #f2f2f2; /* Header background */
+    height: 50px; /* Increased height for better visibility */
+}
+
+.sequence-cell {
+    max-width: 250px; /* Adjust width based on your preference */
+}
+
+.form {
+    margin-top: 20px;
+}
+
+.center {
+    text-align: center;
+}
+
+.button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-block; /* Ensure buttons are properly aligned */
+}
+
+.right-side { /* Adjusted styles for right side */
+    float: right;
+    width: auto; /* Adjust width as needed */
+    padding: 10px;
+    clear: both; /* Ensure this section doesn't overlap with others */
+}
+
+/* for ml output
+/* Styling for the prediction container and its children */
+#predictionContainer {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#predictionContainer > div {
+    font-family: Arial, sans-serif;
+    margin: 5px 0;
+    padding: 10px;
+    background-color: #f0f0f0; /* Light grey background */
+    border-radius: 5px; /* Rounded corners for each prediction block */
+}
+
+#predictionContainer strong {
+    color: #333; /* Dark text for model names */
+}
+
+#predictionContainer span {
+    font-weight: bold;
+    color: #007bff; /* Bootstrap primary color for contrast */
+}
+.content.center {
+    text-align: center;
+}

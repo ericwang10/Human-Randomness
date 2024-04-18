@@ -178,6 +178,7 @@ def get_ai_predictions():
 
 
 if __name__ == '__main__':
+    print("MAIN TRIGGERED")
     app.run(debug=True)
 
 

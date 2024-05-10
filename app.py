@@ -53,7 +53,7 @@ def index():
     #         'confidence': float(pred['confidence'])
     #     } for model, pred in initial_predictions.items()
     # }
-
+    print("REMOVED INITIAL PREDICTION")
 
     formatted_predictions = {}
     return render_template('index.html', users=users, initial_predictions=formatted_predictions)

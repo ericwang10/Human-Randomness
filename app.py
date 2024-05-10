@@ -43,16 +43,19 @@ def index():
     users = [user[0] for user in unique_usernames]  # Extract usernames from tuples
     print(users)
     print("INDEX TRIGGERED")
-    # Generate initial predictions
-    initial_predictions = predict_next_input("")  # Empty sequence for initial guess
-    # Format predictions for JSON serialization
-    formatted_predictions = {
-        model: {
-            'predicted_class': int(pred['predicted_class']),
-            'confidence': float(pred['confidence'])
-        } for model, pred in initial_predictions.items()
-    }
 
+    # Generate initial predictions
+    # initial_predictions = predict_next_input("")  # Empty sequence for initial guess
+    # # Format predictions for JSON serialization
+    # formatted_predictions = {
+    #     model: {
+    #         'predicted_class': int(pred['predicted_class']),
+    #         'confidence': float(pred['confidence'])
+    #     } for model, pred in initial_predictions.items()
+    # }
+
+
+    formatted_predictions = {}
     return render_template('index.html', users=users, initial_predictions=formatted_predictions)
 
 
